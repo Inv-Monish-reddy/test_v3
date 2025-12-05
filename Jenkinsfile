@@ -8,8 +8,6 @@ pipeline {
         DOCKER_REGISTRY_URL = "v2deploy.rtwohealthcare.com"
         IMAGE_NAME = "test-v3"
         IMAGE_TAG = "v${BUILD_NUMBER}"
-
-        BACKEND_DIR = "backend"
     }
 
     stages {
@@ -18,16 +16,13 @@ pipeline {
             steps { checkout scm }
         }
 
-        // -----------------------------------------------------------
-        // Python Install + Tests (single container, no missing pytest)
-        // -----------------------------------------------------------
-
         stage('Install & Test Python Code') {
             steps {
                 sh """
                     docker run --rm \
-                        -v \$PWD/${BACKEND_DIR}:/app \
-                        -w /app python:3.10-slim \
+                        -v \$PWD/backend:/app \
+                        -w /app \
+                        python:3.10-slim \
                         sh -c "
                             pip install --upgrade pip &&
                             pip install -r requirements.txt &&
@@ -36,10 +31,6 @@ pipeline {
                 """
             }
         }
-
-        // -----------------------------------------------------------
-        // SonarQube Scan (FIXED URL)
-        // -----------------------------------------------------------
 
         stage('SonarQube Analysis') {
             steps {
@@ -58,18 +49,9 @@ pipeline {
             }
         }
 
-        // -------------------------------------------------------------------
-        // Skip Quality Gate
-        // -------------------------------------------------------------------
         stage('Skip Quality Gate') {
-            steps {
-                echo "Skipping Quality Gate check"
-            }
+            steps { echo "Skipping Quality Gate as requested" }
         }
-
-        // -----------------------------------------------------------
-        // Docker Build & Push
-        // -----------------------------------------------------------
 
         stage('Docker Build') {
             steps {
@@ -103,11 +85,7 @@ pipeline {
     }
 
     post {
-        success {
-            echo "🔥 Pipeline completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline FAILED. Fix your shit and run again."
-        }
+        success { echo '✅ Pipeline completed successfully!' }
+        failure { echo '❌ Pipeline FAILED. Fix the issue and run again.' }
     }
 }
