@@ -1,1 +1,1 @@
-FROM sonarsource/sonar-scanner-cli:latest
+FROM sonarsource/sonar-scanner-cli:4.6
