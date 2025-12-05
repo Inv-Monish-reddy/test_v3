@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     environment {
-        SONAR_HOST_URL = "https://v2code.rtwohealthcare.com"
-        SONAR_TOKEN = "sqp_ab4016bc5eef902acdbc5f5dbf8f0d46815f0035"
+        SONAR_HOST_URL = "http://v2code.rtwohealthcare.com"   // 🔥 FIXED: HTTP, not HTTPS
+        SONAR_TOKEN    = "sqp_ab4016bc5eef902acdbc5f5dbf8f0d46815f0035"
 
         DOCKER_REGISTRY_URL = "v2deploy.rtwohealthcare.com"
-        IMAGE_NAME = "test_v3"
-        IMAGE_TAG = "v${BUILD_NUMBER}"
+        IMAGE_NAME = "test-v3"
+        IMAGE_TAG  = "v${BUILD_NUMBER}"
     }
 
     stages {
@@ -23,7 +23,8 @@ pipeline {
                 sh """
                     docker run --rm \
                         -v ${WORKSPACE}/backend:/app \
-                        -w /app python:3.10-slim sh -c "
+                        -w /app python:3.10-slim \
+                        sh -c "
                             pip install --upgrade pip &&
                             pip install -r requirements.txt &&
                             pytest --disable-warnings --maxfail=1 -q || true
@@ -36,7 +37,6 @@ pipeline {
             steps {
                 echo "🔍 Running Sonar Scanner inside custom Docker image"
 
-                // Build simple scanner image (Option A)
                 sh """
                     docker build -t sonar-scanner-custom -f sonar-runner-Dockerfile .
                 """
@@ -46,19 +46,19 @@ pipeline {
                         -v ${WORKSPACE}:/src \
                         -w /src sonar-scanner-custom \
                         sonar-scanner \
-                        -Dsonar.projectKey=test_v3 \
-                        -Dsonar.sources=backend \
-                        -Dsonar.host.url=${SONAR_HOST_URL} \
-                        -Dsonar.token=${SONAR_TOKEN}
+                            -Dsonar.projectKey=test_v3 \
+                            -Dsonar.sources=backend \
+                            -Dsonar.host.url=${SONAR_HOST_URL} \
+                            -Dsonar.token=${SONAR_TOKEN}
                 """
             }
         }
 
         stage('Docker Build') {
-            when { expression { currentBuild.result == null } }
             steps {
                 sh """
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} backend
+                    cd backend
+                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
                     docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}
                     docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}:latest
                 """
@@ -66,13 +66,13 @@ pipeline {
         }
 
         stage('Docker Push') {
-            when { expression { currentBuild.result == null } }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-docker-cred',
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
+
                     sh """
                         echo "$PASS" | docker login ${DOCKER_REGISTRY_URL} -u "$USER" --password-stdin
 
@@ -88,10 +88,10 @@ pipeline {
 
     post {
         failure {
-            echo "❌ Pipeline FAILED — go fix it."
+            echo "❌ Pipeline FAILED — fix it and rerun."
         }
         success {
-            echo "✅ Pipeline SUCCESS — Good job Boss."
+            echo "✅ Pipeline SUCCESS — you're unstoppable, Boss."
         }
     }
 }
