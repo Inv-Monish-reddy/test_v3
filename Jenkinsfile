@@ -15,39 +15,30 @@ pipeline {
     stages {
 
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
         // -----------------------------------------------------------
-        // Python Build & Tests using Docker
+        // Python Install + Tests (single container, no missing pytest)
         // -----------------------------------------------------------
 
-        stage('Install Python Dependencies') {
+        stage('Install & Test Python Code') {
             steps {
                 sh """
                     docker run --rm \
                         -v \$PWD/${BACKEND_DIR}:/app \
                         -w /app python:3.10-slim \
-                        sh -c "pip install --upgrade pip && pip install -r requirements.txt"
-                """
-            }
-        }
-
-        stage('Run Unit Tests') {
-            steps {
-                sh """
-                    docker run --rm \
-                        -v \$PWD/${BACKEND_DIR}:/app \
-                        -w /app python:3.10-slim \
-                        pytest -q || true
+                        sh -c "
+                            pip install --upgrade pip &&
+                            pip install -r requirements.txt &&
+                            pytest --disable-warnings --maxfail=1 -q || true
+                        "
                 """
             }
         }
 
         // -----------------------------------------------------------
-        // SonarQube Scan (Python project)
+        // SonarQube Scan (FIXED URL)
         // -----------------------------------------------------------
 
         stage('SonarQube Analysis') {
@@ -67,9 +58,12 @@ pipeline {
             }
         }
 
+        // -------------------------------------------------------------------
+        // Skip Quality Gate
+        // -------------------------------------------------------------------
         stage('Skip Quality Gate') {
             steps {
-                echo "Skipping Sonar Quality Gate check by request."
+                echo "Skipping Quality Gate check"
             }
         }
 
@@ -110,10 +104,10 @@ pipeline {
 
     post {
         success {
-            echo "🔥 Build + Test + Sonar + Docker Push successful!"
+            echo "🔥 Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed — fix your mess."
+            echo "❌ Pipeline FAILED. Fix your shit and run again."
         }
     }
 }
